@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pagos_app/bloc/pagar/pagar_bloc.dart';
+
 import 'package:flutter_credit_card/flutter_credit_card.dart';
 import 'package:pagos_app/data/tarjetas.dart';
 import 'package:pagos_app/helpers/helpers.dart';
 import 'package:pagos_app/pages/tarjeta_page.dart';
+import 'package:pagos_app/services/stripe_service.dart';
 import 'package:pagos_app/widgets/total_pay_button.dart';
 
 class HomePage extends StatelessWidget {
+  final stripeService = new StripeService();
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+
+    final bloc = BlocProvider.of<PagarBloc>(context).state;
 
     return Scaffold(
       appBar: AppBar(
@@ -22,8 +30,23 @@ class HomePage extends StatelessWidget {
             icon: Icon(Icons.add),
             onPressed: () async {
               mostrarLoading(context);
-              await Future.delayed(Duration(seconds: 1));
+              final amount = bloc.montoPagarString;
+              final currency = bloc.moneda;
+
+              final resp = await this.stripeService.pagarNuevaTarjeta(
+                    amount: amount,
+                    currency: currency,
+                  );
               Navigator.pop(context);
+
+              if (resp.ok) {
+                mostrarAlerta(context, 'Tarjeta Nueva Agregada',
+                    'Tarjeta agregada correctamente');
+              } else {
+                mostrarAlerta(context, 'Algo salió mal', resp.msg);
+              }
+
+              // Navigator.pop(context);
             },
           )
         ],
@@ -45,6 +68,8 @@ class HomePage extends StatelessWidget {
 
                   return GestureDetector(
                     onTap: () {
+                      BlocProvider.of<PagarBloc>(context)
+                          .add(OnSeleccionarTarjeta(tarjeta));
                       Navigator.push(
                           context, navegarFadeIn(context, TarjetaPage()));
                       print('Holi');
@@ -66,7 +91,7 @@ class HomePage extends StatelessWidget {
           ),
           Positioned(
             bottom: 0,
-            child: TotapPayButton(),
+            child: TotalPayButton(),
           ),
         ],
       ),
